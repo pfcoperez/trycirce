@@ -1,25 +1,22 @@
 package org.pfcoperez
 
-import io.circe.generic.auto._, io.circe.syntax._
+import io.circe.Encoder
+//import io.circe.generic.auto._
+import io.circe.generic.encoding.DerivedObjectEncoder
+import io.circe.syntax._
+import io.circe.generic.semiauto.deriveEncoder
+import shapeless.Lazy
 
 object Sample extends App {
 
   import Models._
 
-  //val foo: Foo = Qux(13, Some(14.0))
-  val foo: Foo = User("pablo", "dadada")
-  //val foo = Qux(13, Some(14.0))
+  val foo: Foo = UserDetails("pablo", "dadada", Sensitive("Context sensitive value", "-"))
 
-
-  val json = foo.asJson //.noSpaces
-
-  //json.hcursor.
+  val json = foo.asJson
 
   println(json)
 
-  //val decodedFoo = decode[Foo](json)
-  //val decodedFoo = decode[Qux](json)
-  
+  //val decodedFoo = decode[UserDetails](json)
   //println(decodedFoo)
-
 }
