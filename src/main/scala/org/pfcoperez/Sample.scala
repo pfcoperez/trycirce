@@ -1,14 +1,16 @@
 package org.pfcoperez
 
+import io.circe.Json
 import io.circe.syntax._
+import io.circe.literal._
+import org.pfcoperez.containers.Sensitive
 
-object Sample extends App {
-
+object Sample extends App with Models.Protocol {
   import Models._
-  val protocol = new Protocol(SecurityContext(System.currentTimeMillis()/1000 % 2 == 0))
-  import protocol._
+  override implicit val context: SerdesContext = SerdesContext(redactSecrets = false, strictDeser = true)
 
-  val user: UserDetails = UserDetails("pablo", "dadada", Sensitive("Context sensitive value", "-"))
+  val aFriend: UserDetails = UserDetails("someone", "dududu", Sensitive("secret", "-"), None)
+  val user: UserDetails = UserDetails("pablo", "dadada", Sensitive("Context sensitive value", "-"), Some(aFriend))
   val foo: Foo = user
 
   val contract = Contract(
@@ -20,10 +22,14 @@ object Sample extends App {
   )
 
   //val json = foo.asJson
-  val json = contract.asJson
+  val json1 = contract.asJson
+  println(json1)
 
-  println(json)
 
-  //val decodedFoo = decode[UserDetails](json)
-  //println(decodedFoo)
+  val json2: Json =
+    json""" { "x": 1 , "y": 2} """
+    //json""" { "x": 1 } """
+
+  val decodedA = aDecoder.decodeJson(json2)
+  println(decodedA)
 }
