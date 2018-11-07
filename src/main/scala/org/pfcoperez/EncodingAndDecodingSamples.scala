@@ -5,9 +5,11 @@ import io.circe.syntax._
 import io.circe.literal._
 import org.pfcoperez.containers.Sensitive
 
-object EncodingAndDecodingSamples extends App with Models.Protocol {
+object EncodingAndDecodingSamples extends App {
   import Models._
-  override implicit val context: SerdesContext = SerdesContext(redactSecrets = false, strictDeser = true)
+  val context: SerdesContext = SerdesContext(redactSecrets = false, strictDeser = true)
+  val protocol = Protocol()(context)
+  import protocol._
 
   val aFriend: UserDetails = UserDetails("someone", "dududu", Sensitive("secret", "-"), None)
   val user: UserDetails = UserDetails("pablo", "dadada", Sensitive("Context sensitive value", "-"), Some(aFriend))

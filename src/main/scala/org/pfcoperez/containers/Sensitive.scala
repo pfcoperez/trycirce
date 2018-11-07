@@ -7,8 +7,7 @@ case class Sensitive[T, RedactedT](value: T, redacted: RedactedT)
 
 object Sensitive {
 
-  trait Protocol {
-    implicit val context: SerdesContext
+  case class Protocol(context: SerdesContext) {
 
     implicit def sensitiveEncoder[T, RedactedT](
       implicit redactedEncoderEvidence: Encoder[RedactedT],

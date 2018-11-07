@@ -5,6 +5,7 @@ import io.circe.generic.extras.Configuration
 import io.circe.generic.extras.semiauto.deriveEncoder
 import custom.circe.semiauto.deriveDecoder
 import org.pfcoperez.containers.Sensitive
+import shapeless.LabelledGeneric
 
 object Models {
 
@@ -20,7 +21,10 @@ object Models {
 
   case class A(x: Int)
 
-  trait Protocol extends containers.Sensitive.Protocol {
+  case class Protocol(implicit context: SerdesContext) {
+
+    val sensitiveProtocol = containers.Sensitive.Protocol(context)
+    import sensitiveProtocol._
 
     implicit lazy val cfg: Configuration = Configuration.default.withSnakeCaseConstructorNames.withSnakeCaseMemberNames
 
@@ -31,6 +35,8 @@ object Models {
     implicit lazy val userEncoder: Encoder[UserDetails] = deriveEncoder[UserDetails]
     implicit lazy val contractEncoder: Encoder[Contract] = deriveEncoder[Contract]
 
+    implicit val aGenerator = LabelledGeneric[A]
+    //implicit val quxGenerator = LabelledGeneric[Qux]
 
     implicit lazy val aDecoder: Decoder[A] = deriveDecoder
     implicit lazy val quxDecoder: Decoder[Qux] = deriveDecoder
