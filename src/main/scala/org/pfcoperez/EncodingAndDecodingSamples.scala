@@ -1,15 +1,16 @@
 package org.pfcoperez
 
-import io.circe.Json
+import io.circe.{Decoder, Json}
 import io.circe.syntax._
 import io.circe.literal._
 import org.pfcoperez.containers.Sensitive
 
 object EncodingAndDecodingSamples extends App {
   import Models._
-  val context: SerdesContext = SerdesContext(redactSecrets = false, strictDeser = true)
-  val protocol = Protocol()(context)
-  import protocol._
+  import Protocol._
+
+  implicit val context: SerdesContext = SerdesContext(redactSecrets = false, strictDeser = true)
+
 
   val aFriend: UserDetails = UserDetails("someone", "dududu", Sensitive("secret", "-"), None)
   val user: UserDetails = UserDetails("pablo", "dadada", Sensitive("Context sensitive value", "-"), Some(aFriend))
@@ -32,7 +33,7 @@ object EncodingAndDecodingSamples extends App {
     json""" { "x": 1 , "y": 2} """
     //json""" { "x": 1 } """
 
-  val decodedA = aDecoder.decodeJson(json2)
+  val decodedA = applyContextParam(aDecoder, context).decodeJson(json2)
   println(decodedA)
 
   val json3: Json =
@@ -44,6 +45,6 @@ object EncodingAndDecodingSamples extends App {
             }
           }"""
 
-  val decodedQux = quxDecoder.decodeJson(json3)
+  val decodedQux = applyContextParam(quxDecoder, context).decodeJson(json3)
   println(decodedQux)
 }

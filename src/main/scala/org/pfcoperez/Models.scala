@@ -1,11 +1,12 @@
 package org.pfcoperez
 
-import io.circe.{Decoder, Encoder, HCursor}
+import io.circe.{Decoder, Encoder}
 import io.circe.generic.extras.Configuration
 import io.circe.generic.extras.semiauto.deriveEncoder
 import custom.circe.semiauto.deriveDecoder
+import io.circe.generic.extras.encoding.ConfiguredObjectEncoder
 import org.pfcoperez.containers.Sensitive
-import shapeless.LabelledGeneric
+import shapeless.{LabelledGeneric, Lazy}
 
 object Models {
 
@@ -21,25 +22,39 @@ object Models {
 
   case class A(x: Int)
 
-  case class Protocol(implicit context: SerdesContext) {
-
-    val sensitiveProtocol = containers.Sensitive.Protocol(context)
-    import sensitiveProtocol._
+  object Protocol {
+    import Sensitive.Protocol._
 
     implicit lazy val cfg: Configuration = Configuration.default.withSnakeCaseConstructorNames.withSnakeCaseMemberNames
 
-    implicit lazy val fooEncoder: Encoder[Foo] = deriveEncoder[Foo]
-    implicit lazy val barEncoder: Encoder[Bar] = deriveEncoder[Bar]
-    implicit lazy val quxEncoder: Encoder[Qux] = deriveEncoder[Qux]
-    implicit lazy val aEncoder: Encoder[A] = deriveEncoder[A]
-    implicit lazy val userEncoder: Encoder[UserDetails] = deriveEncoder[UserDetails]
-    implicit lazy val contractEncoder: Encoder[Contract] = deriveEncoder[Contract]
+    implicit def applyContextParam[T, F[_]](implicit f: SerdesContext => F[T], serdesContext: SerdesContext): F[T] =
+      f(serdesContext)
 
-    implicit val aGenerator = LabelledGeneric[A]
-    //implicit val quxGenerator = LabelledGeneric[Qux]
+    implicit val fooEncoder: SerdesContext => Encoder[Foo] = {
+      implicit serdesContext => deriveEncoder[Foo]
+    }
+    implicit lazy val barEncoder: SerdesContext => Encoder[Bar] = {
+      implicit serdesContext => deriveEncoder[Bar]
+    }
+    implicit lazy val quxEncoder: SerdesContext => Encoder[Qux] = {
+      implicit serdesContext => deriveEncoder[Qux]
+    }
+    implicit lazy val aEncoder: SerdesContext => Encoder[A] = {
+      implicit serdesContext => deriveEncoder[A]
+    }
+    implicit val userEncoder: SerdesContext => Encoder[UserDetails] = {
+      implicit serdesContext => deriveEncoder[UserDetails]
+    }
+    implicit val contractEncoder: SerdesContext => Encoder[Contract] = {
+      implicit serdesContext => deriveEncoder[Contract]
+    }
 
-    implicit lazy val aDecoder: Decoder[A] = deriveDecoder
-    implicit lazy val quxDecoder: Decoder[Qux] = deriveDecoder
+    implicit val aDecoder: SerdesContext => Decoder[A] = {
+      implicit serdesContext => deriveDecoder
+    }
+    implicit val quxDecoder: SerdesContext => Decoder[Qux] = {
+      implicit serdesContext => deriveDecoder
+    }
   }
 
 }
