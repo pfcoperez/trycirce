@@ -21,25 +21,26 @@ object Models {
 
   case class A(x: Int)
 
-  case class Protocol(implicit context: SerdesContext) {
+  trait ContextualProtocol {
+    implicit val context: SerdesContext
+  }
 
-    val sensitiveProtocol = containers.Sensitive.Protocol(context)
-    import sensitiveProtocol._
+  case class ModelsProtocol(context: SerdesContext) extends ContextualProtocol {
+    import Sensitive.Protocol._
+
+    implicit lazy val ctx: SerdesContext = context
 
     implicit lazy val cfg: Configuration = Configuration.default.withSnakeCaseConstructorNames.withSnakeCaseMemberNames
 
-    implicit lazy val fooEncoder: Encoder[Foo] = deriveEncoder[Foo]
-    implicit lazy val barEncoder: Encoder[Bar] = deriveEncoder[Bar]
-    implicit lazy val quxEncoder: Encoder[Qux] = deriveEncoder[Qux]
-    implicit lazy val aEncoder: Encoder[A] = deriveEncoder[A]
-    implicit lazy val userEncoder: Encoder[UserDetails] = deriveEncoder[UserDetails]
-    implicit lazy val contractEncoder: Encoder[Contract] = deriveEncoder[Contract]
+    implicit val fooEncoder: Encoder[Foo] = deriveEncoder[Foo]
+    implicit val barEncoder: Encoder[Bar] = deriveEncoder[Bar]
+    implicit val quxEncoder: Encoder[Qux] = deriveEncoder[Qux]
+    implicit val aEncoder: Encoder[A] = deriveEncoder[A]
+    implicit val userEncoder: Encoder[UserDetails] = deriveEncoder[UserDetails]
+    implicit val contractEncoder: Encoder[Contract] = deriveEncoder[Contract]
 
-    implicit val aGenerator = LabelledGeneric[A]
-    //implicit val quxGenerator = LabelledGeneric[Qux]
-
-    implicit lazy val aDecoder: Decoder[A] = deriveDecoder
-    implicit lazy val quxDecoder: Decoder[Qux] = deriveDecoder
+    implicit val aDecoder: Decoder[A] = deriveDecoder
+    implicit val quxDecoder: Decoder[Qux] = deriveDecoder
   }
 
 }

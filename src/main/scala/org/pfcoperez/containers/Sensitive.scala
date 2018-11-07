@@ -7,11 +7,12 @@ case class Sensitive[T, RedactedT](value: T, redacted: RedactedT)
 
 object Sensitive {
 
-  case class Protocol(context: SerdesContext) {
+  object Protocol {
 
     implicit def sensitiveEncoder[T, RedactedT](
       implicit redactedEncoderEvidence: Encoder[RedactedT],
       encoderEvidence: Encoder[T],
+      context: SerdesContext
     ): Encoder[Sensitive[T, RedactedT]] =
       if (context.redactSecrets) {
         redactedEncoderEvidence.contramap[Sensitive[T, RedactedT]] {

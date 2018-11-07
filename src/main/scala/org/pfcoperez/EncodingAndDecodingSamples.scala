@@ -8,7 +8,7 @@ import org.pfcoperez.containers.Sensitive
 object EncodingAndDecodingSamples extends App {
   import Models._
   val context: SerdesContext = SerdesContext(redactSecrets = false, strictDeser = true)
-  val protocol = Protocol()(context)
+  val protocol = ModelsProtocol(context)
   import protocol._
 
   val aFriend: UserDetails = UserDetails("someone", "dududu", Sensitive("secret", "-"), None)
