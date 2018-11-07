@@ -30,11 +30,11 @@ object semiauto {
       val maybeOk = for {
         json <- c.focus
         jsonKeys <- json.hcursor.keys
-      } yield jsonKeys.toSet == expectedFields
+      } yield jsonKeys.forall(expectedFields.contains)
       maybeOk.getOrElse(false)
     }
     if(context.strictDeser)
-      origDeriveDecoder[T].validate(predicate, s"Unexpected fields. Valid fields: ${expectedFields.mkString(",")}.")
+      origDeriveDecoder[T].validate(predicate, s"Unexpected fields found! Valid fields: ${expectedFields.mkString(",")}.")
     else
       origDeriveDecoder[T]
   }

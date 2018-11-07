@@ -5,7 +5,7 @@ import io.circe.syntax._
 import io.circe.literal._
 import org.pfcoperez.containers.Sensitive
 
-object Sample extends App with Models.Protocol {
+object EncodingAndDecodingSamples extends App with Models.Protocol {
   import Models._
   override implicit val context: SerdesContext = SerdesContext(redactSecrets = false, strictDeser = true)
 
@@ -32,4 +32,16 @@ object Sample extends App with Models.Protocol {
 
   val decodedA = aDecoder.decodeJson(json2)
   println(decodedA)
+
+  val json3: Json =
+    json""" {
+            "i": 1,
+            "a": {
+              "x": 42,
+              "y": 42
+            }
+          }"""
+
+  val decodedQux = quxDecoder.decodeJson(json3)
+  println(decodedQux)
 }

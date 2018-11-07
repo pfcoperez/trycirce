@@ -12,7 +12,7 @@ object Models {
 
   case class Bar(xs: Vector[String]) extends Foo
 
-  case class Qux(i: Int, d: Option[Double]) extends Foo
+  case class Qux(i: Int, d: Option[Double], a: A) extends Foo
 
   case class UserDetails(name: String, password: String, other: Sensitive[String, String], maybeFriend: Option[UserDetails]) extends Foo
 
@@ -27,11 +27,13 @@ object Models {
     implicit lazy val fooEncoder: Encoder[Foo] = deriveEncoder[Foo]
     implicit lazy val barEncoder: Encoder[Bar] = deriveEncoder[Bar]
     implicit lazy val quxEncoder: Encoder[Qux] = deriveEncoder[Qux]
+    implicit lazy val aEncoder: Encoder[A] = deriveEncoder[A]
     implicit lazy val userEncoder: Encoder[UserDetails] = deriveEncoder[UserDetails]
     implicit lazy val contractEncoder: Encoder[Contract] = deriveEncoder[Contract]
 
 
     implicit lazy val aDecoder: Decoder[A] = deriveDecoder
+    implicit lazy val quxDecoder: Decoder[Qux] = deriveDecoder
   }
 
 }
