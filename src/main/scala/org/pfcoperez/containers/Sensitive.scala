@@ -6,7 +6,7 @@ import io.circe.generic.extras.Configuration
 import io.circe.{Decoder, Encoder, Json}
 import io.circe.parser._
 import javax.crypto.Cipher
-import javax.crypto.spec.SecretKeySpec
+import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
 import org.pfcoperez.SerdesContext
 
 import scala.util.Random
@@ -54,7 +54,7 @@ object Sensitive {
       def cipher(key: String, mode: Int) = {
         // Inspired by https://gist.github.com/alexandru/ac1c01168710786b54b0
         val cipherInstance = Cipher.getInstance("AES/CBC/PKCS5Padding")
-        cipherInstance.init(mode, key)
+        cipherInstance.init(mode, key, new IvParameterSpec(Array.fill[Byte](16)(0)))
         cipherInstance
       }
 
@@ -69,11 +69,17 @@ object Sensitive {
         Encrypted(new String(cipheredBytes, charset))
       }
 
-      def decrypt[T](x: Encrypted[String])(key: String)(implicit decoder: Decoder[T]): Option[T] = {
-        val rawJson = new String(
+      def decryptRaw(x: Encrypted[String])(key: String): String =
+        new String(
           cipher(key, Cipher.DECRYPT_MODE).doFinal(Base64.getDecoder.decode(x._ciphered.getBytes(charset))),
           charset
         )
+
+      def decryptRawWithGlobalKey(x: Encrypted[String]): String =
+        decryptRaw(x)(globalKey)
+
+      def decrypt[T](x: Encrypted[String])(key: String)(implicit decoder: Decoder[T]): Option[T] = {
+        val rawJson = decryptRaw(x)(key)
         parse(rawJson) flatMap { json =>
           decoder.decodeJson(json)
         } toOption
@@ -83,14 +89,41 @@ object Sensitive {
         Sensitive(x, EncryptedString.encrypt(x, globalKey))
     }
 
-    implicit def sensitiveEncoder[T](
+    val encryptedEncoder = io.circe.generic.extras.semiauto.deriveEncoder[Encrypted[String]]
+    val encryptedDecoder = io.circe.generic.extras.semiauto.deriveDecoder[Encrypted[String]]
+
+    implicit def encryptedSensitiveEncoder[T](
       implicit encoderEvidence: Encoder[T]
     ): Encoder[Sensitive[T, Encrypted[String]]] = {
-      implicit val encryptedEncoder = io.circe.generic.extras.semiauto.deriveEncoder[Encrypted[String]]
       encryptedEncoder.contramap[Sensitive[T, Encrypted[String]]] { sensitive =>
         EncryptedString.encrypt(sensitive.value, globalKey)
       }
     }
+
+  /*  implicit def redactedSensitiveEncoder[T, RedactedT](redactResult: Boolean)(
+      implicit encryptedSensitiveEncEv: Encoder[Sensitive[T, Encrypted[String]]],
+      redactedEncoderEv: Encoder[RedactedT],
+      encryptedDecoderEv: Decoder[Encrypted[String]],
+      tDecoderEv: Decoder[T]
+    ): Encoder[Sensitive[T, RedactedT]] = {
+      encryptedSensitiveEncEv.contramap[Sensitive[T, RedactedT]] { sensitiveSource =>
+        if (redactResult)
+      }*/
+
+
+      /*{ json =>
+        val res = if (redactResult) {
+          redactedEncoderEv(redacted)
+        } else {
+          val maybeEncrypted = encryptedDecoderEv(json).toOption
+          maybeEncrypted.map { encrypted =>
+            EncryptedString.decrypt(encrypted)(globalKey)
+          }
+          ???
+        }
+      }
+      ???
+    }*/
 
   }
 

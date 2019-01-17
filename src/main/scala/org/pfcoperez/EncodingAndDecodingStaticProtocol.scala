@@ -1,10 +1,12 @@
 package org.pfcoperez
 
+import io.circe.Json
+import io.circe.parser._
 import io.circe.generic.extras.Configuration
 import io.circe.generic.extras.semiauto.deriveEncoder
 import org.pfcoperez.EncodingAndDecodingStaticProtocol.Model.{Address, UserDetails}
 import org.pfcoperez.containers.Sensitive
-import org.pfcoperez.containers.Sensitive.StaticProtocol.{Encrypted, EncryptedString}
+import org.pfcoperez.containers.Sensitive.StaticProtocol.{Encrypted, EncryptedString, encryptedDecoder}
 
 object EncodingAndDecodingStaticProtocol extends App {
 
@@ -26,12 +28,26 @@ object EncodingAndDecodingStaticProtocol extends App {
   }
 
   import StaticProtocol._
-  import EncryptedString.encryptedSensitive
+  import EncryptedString.{encryptedSensitive, decryptRawWithGlobalKey}
 
   val ex01 = UserDetails("aaa", "bbb", Address("Kobe"))
 
+  def traverse(json: Json): Json = {
+    encryptedDecoder.decodeJson(json).flatMap { encrypted =>
+      parse {
+        decryptRawWithGlobalKey(encrypted)
+      }
+    } getOrElse {
+      json.mapObject {
+        _.mapValues(traverse)
+      }
+    }
+  }
+
   println {
-    userDetailsFormat(ex01).toString
+    val json = traverse(userDetailsFormat(ex01))
+
+    json.toString
   }
 
 }
