@@ -38,14 +38,15 @@ object Sensitive {
 
     implicit lazy val cfg: Configuration = Configuration.default.withSnakeCaseConstructorNames.withSnakeCaseMemberNames
 
-    case class Encrypted[Ciphered](_ciphered: Ciphered)
+    private case class Encrypted(_ciphered: String, _redactedAsJsonString: String)
 
-    lazy val globalKey: String = {
-      Random.setSeed(System.currentTimeMillis()*(new Object).hashCode().toLong) // A simple source of entropy
-      Random.nextString(32)
-    }
+    private object Encrypted {
 
-    object EncryptedString {
+      lazy val globalKey: String = {
+        Random.setSeed(System.currentTimeMillis()*(new Object).hashCode().toLong) // A simple source of entropy
+        Random.nextString(32)
+      }
+
       val charset = "UTF-8"
 
       implicit def keySpec(key: String): SecretKeySpec =
@@ -58,72 +59,65 @@ object Sensitive {
         cipherInstance
       }
 
-      def encrypt[T](x: T, key: String)(implicit encoder: Encoder[T]): Encrypted[String] = {
+      def encrypt[T, RedactedT](x: T, redacted: RedactedT, key: String)(
+        implicit encoderT: Encoder[T],
+        encoderRedactedT: Encoder[RedactedT]
+      ): Encrypted = {
 
-        val jsonEncoded = encoder(x).noSpaces
+        val jsonEncoded = encoderT(x).noSpaces
 
         val cipheredBytes = Base64.getEncoder.encode {
           cipher(key, Cipher.ENCRYPT_MODE).doFinal(jsonEncoded.getBytes(charset))
         }
 
-        Encrypted(new String(cipheredBytes, charset))
+        Encrypted(new String(cipheredBytes, charset), encoderRedactedT(redacted).toString)
       }
 
-      def decryptRaw(x: Encrypted[String])(key: String): String =
+      def decryptRaw[RedactedT](x: Encrypted)(key: String): String =
         new String(
           cipher(key, Cipher.DECRYPT_MODE).doFinal(Base64.getDecoder.decode(x._ciphered.getBytes(charset))),
           charset
         )
 
-      def decryptRawWithGlobalKey(x: Encrypted[String]): String =
+      def decryptRawWithGlobalKey[RedactedT](x: Encrypted): String =
         decryptRaw(x)(globalKey)
 
-      def decrypt[T](x: Encrypted[String])(key: String)(implicit decoder: Decoder[T]): Option[T] = {
+      def decrypt[T, RedactedT](x: Encrypted)(key: String)(implicit decoder: Decoder[T]): Option[T] = {
         val rawJson = decryptRaw(x)(key)
         parse(rawJson) flatMap { json =>
           decoder.decodeJson(json)
         } toOption
       }
 
-      implicit def encryptedSensitive[T : Encoder](x: T): Sensitive[T, Encrypted[String]] =
-        Sensitive(x, EncryptedString.encrypt(x, globalKey))
     }
 
-    val encryptedEncoder = io.circe.generic.extras.semiauto.deriveEncoder[Encrypted[String]]
-    val encryptedDecoder = io.circe.generic.extras.semiauto.deriveDecoder[Encrypted[String]]
+    private val encryptedEncoder = io.circe.generic.extras.semiauto.deriveEncoder[Encrypted]
+    private val encryptedDecoder = io.circe.generic.extras.semiauto.deriveDecoder[Encrypted]
 
-    implicit def encryptedSensitiveEncoder[T](
-      implicit encoderEvidence: Encoder[T]
-    ): Encoder[Sensitive[T, Encrypted[String]]] = {
-      encryptedEncoder.contramap[Sensitive[T, Encrypted[String]]] { sensitive =>
-        EncryptedString.encrypt(sensitive.value, globalKey)
+    implicit def sensitiveEncoder[T, RedactedT](
+      implicit unredactedEncoderEvidence: Encoder[T],
+      redactedEncoderEvidence: Encoder[RedactedT]
+    ): Encoder[Sensitive[T, RedactedT]] = {
+      encryptedEncoder.contramap[Sensitive[T, RedactedT]] { sensitive =>
+        Encrypted.encrypt(sensitive.value, sensitive.redacted, Encrypted.globalKey)
       }
     }
 
-  /*  implicit def redactedSensitiveEncoder[T, RedactedT](redactResult: Boolean)(
-      implicit encryptedSensitiveEncEv: Encoder[Sensitive[T, Encrypted[String]]],
-      redactedEncoderEv: Encoder[RedactedT],
-      encryptedDecoderEv: Decoder[Encrypted[String]],
-      tDecoderEv: Decoder[T]
-    ): Encoder[Sensitive[T, RedactedT]] = {
-      encryptedSensitiveEncEv.contramap[Sensitive[T, RedactedT]] { sensitiveSource =>
-        if (redactResult)
-      }*/
-
-
-      /*{ json =>
-        val res = if (redactResult) {
-          redactedEncoderEv(redacted)
-        } else {
-          val maybeEncrypted = encryptedDecoderEv(json).toOption
-          maybeEncrypted.map { encrypted =>
-            EncryptedString.decrypt(encrypted)(globalKey)
+    def postProcess(json: Json, redact : Boolean): Json = {
+      def postProcess(json: Json): Json = {
+        encryptedDecoder.decodeJson(json).flatMap { encrypted =>
+          parse {
+            if (redact) encrypted._redactedAsJsonString
+            else Encrypted.decryptRawWithGlobalKey(encrypted)
           }
-          ???
+        } getOrElse {
+          json.mapObject {
+            _.mapValues(postProcess)
+          }
         }
       }
-      ???
-    }*/
+      postProcess(json)
+    }
 
   }
 
