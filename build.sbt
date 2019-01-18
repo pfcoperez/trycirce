@@ -6,7 +6,7 @@ name := "trycirce"
 
 scalaVersion := "2.12.6"
 
-val circeVersion = "0.10.1"
+val circeVersion = "0.11.1"
 
 lazy val circeDependencies = Seq(
   "io.circe" %% "circe-core",

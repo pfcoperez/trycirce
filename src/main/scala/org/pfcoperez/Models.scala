@@ -4,9 +4,8 @@ import io.circe.{Decoder, Encoder}
 import io.circe.generic.extras.Configuration
 import io.circe.generic.extras.semiauto.deriveEncoder
 import custom.circe.semiauto.deriveDecoder
-import io.circe.generic.extras.encoding.ConfiguredObjectEncoder
+import org.pfcoperez.EncodingAndDecodingStaticProtocol.Model.{Address, UserDetails}
 import org.pfcoperez.containers.Sensitive
-import shapeless.{LabelledGeneric, Lazy}
 
 object Models {
 
@@ -21,6 +20,10 @@ object Models {
   case class Contract(id: String, customer: Sensitive[UserDetails, String]) extends Foo
 
   case class A(x: Int)
+
+  case class Address(city: String)
+
+  case class User(name: String, password: String, address: Sensitive[Address, String])
 
   object Protocol {
     import Sensitive.Protocol._
@@ -57,4 +60,18 @@ object Models {
     }
   }
 
+  object StaticProtocol {
+    import Sensitive.StaticProtocol.sensitiveEncoder
+    implicit lazy val cfg: Configuration = Configuration.default.withSnakeCaseConstructorNames.withSnakeCaseMemberNames
+
+    implicit val fooEncoder: Encoder[Foo] = deriveEncoder[Foo]
+    implicit val barEncoder: Encoder[Bar] = deriveEncoder[Bar]
+    implicit val quxEncoder: Encoder[Qux] = deriveEncoder[Qux]
+    implicit val aEncoder: Encoder[A] = deriveEncoder[A]
+    implicit val userEncoder: Encoder[UserDetails] = deriveEncoder[UserDetails]
+    implicit val contractEncoder: Encoder[Contract] = deriveEncoder[Contract]
+    implicit val addressFormat = deriveEncoder[Address]
+    implicit val userDetailsFormat = deriveEncoder[User]
+
+  }
 }
