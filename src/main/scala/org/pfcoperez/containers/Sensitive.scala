@@ -121,4 +121,21 @@ object Sensitive {
 
   }
 
+  object LazyProtocol {
+    import shapeless.Lazy
+
+    implicit lazy val cfg: Configuration = Configuration.default.withSnakeCaseConstructorNames.withSnakeCaseMemberNames
+    
+    implicit def sensitiveEncoder[T, RedactedT](
+      implicit aEncoder: Encoder[T],
+      bEncoder: Encoder[RedactedT],
+      serdesContext: Lazy[SerdesContext]): Encoder[Sensitive[T, RedactedT]] = {
+      if (serdesContext.value.redactSecrets) {
+        Encoder.instance[Sensitive[T, RedactedT]](s => bEncoder(s.redacted))
+      } else {
+        Encoder.instance[Sensitive[T, RedactedT]](s => aEncoder(s.value))
+      }
+    }
+  }
+
 }
