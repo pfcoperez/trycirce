@@ -1,11 +1,17 @@
 package org.pfcoperez
 
-import io.circe.{Decoder, Encoder}
+import io.circe.{Decoder, Encoder, ObjectEncoder}
 import io.circe.generic.extras.Configuration
 import io.circe.generic.extras.semiauto.deriveEncoder
 import custom.circe.semiauto.deriveDecoder
+import io.circe.generic.decoding.DerivedDecoder
+import io.circe.generic.extras.encoding.ConfiguredObjectEncoder
 import org.pfcoperez.EncodingAndDecodingStaticProtocol.Model.{Address, UserDetails}
 import org.pfcoperez.containers.Sensitive
+import shapeless.Lazy
+
+import scala.collection.convert.Wrappers.ConcurrentMapWrapper
+import scala.collection.mutable
 
 object Models {
 
@@ -90,5 +96,31 @@ object Models {
     implicit def contractEncoder(implicit serdesContext: Lazy[SerdesContext]): Encoder[Contract] = deriveEncoder[Contract]
     implicit def addressEncoder(implicit serdesContext: Lazy[SerdesContext]): Encoder[Address] = deriveEncoder[Address]
     implicit def userDetailsEncoder(implicit serdesContext: Lazy[SerdesContext]): Encoder[User] = deriveEncoder[User]
+  }
+
+  object Cache {
+    val cache = new collection.concurrent.TrieMap[(SerdesContext, Manifest[_]), Encoder[_]]()
+    def cached[Model: Manifest](serdesContext: Lazy[SerdesContext], deriveEncoder: => Encoder[Model]): Encoder[Model] =
+      cache.getOrElseUpdate((serdesContext.value, implicitly[Manifest[Model]]), deriveEncoder).asInstanceOf[Encoder[Model]]
+    def cachedDeriveEncoder[Model: Manifest](implicit serdesContext: Lazy[SerdesContext], encode: Lazy[ConfiguredObjectEncoder[Model]]) = cached(serdesContext, deriveEncoder[Model])
+  }
+
+  object LazyCachedProtocol {
+    import Cache._
+
+    import shapeless.Lazy
+    implicit lazy val cfg: Configuration = Configuration.default.withSnakeCaseConstructorNames.withSnakeCaseMemberNames
+    import Sensitive.LazyProtocol.sensitiveEncoder
+
+    implicit def fooEncoder(implicit serdesContext: Lazy[SerdesContext]): Encoder[Foo] = deriveEncoder[Foo]
+
+    implicit val barEncoder: Encoder[Bar] = deriveEncoder[Bar]
+    implicit val quxEncoder: Encoder[Qux] = deriveEncoder[Qux]
+    implicit val aEncoder: Encoder[A] = deriveEncoder[A]
+
+    implicit def userEncoder(implicit serdesContext: Lazy[SerdesContext]): Encoder[UserDetails] = cachedDeriveEncoder[UserDetails]
+    implicit def contractEncoder(implicit serdesContext: Lazy[SerdesContext]): Encoder[Contract] = cachedDeriveEncoder[Contract]
+    implicit def addressEncoder(implicit serdesContext: Lazy[SerdesContext]): Encoder[Address] = cachedDeriveEncoder[Address]
+    implicit def userDetailsEncoder(implicit serdesContext: Lazy[SerdesContext]): Encoder[User] = cachedDeriveEncoder[User]
   }
 }
