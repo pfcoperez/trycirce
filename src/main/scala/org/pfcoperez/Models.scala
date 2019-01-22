@@ -78,47 +78,17 @@ object Models {
   object LazyProtocol {
     import shapeless.Lazy
     implicit lazy val cfg: Configuration = Configuration.default.withSnakeCaseConstructorNames.withSnakeCaseMemberNames
+    import Sensitive.LazyProtocol.sensitiveEncoder
 
-    implicit def fooEncoder(
-      implicit lazySensitiveEncoderUserDetails: Lazy[Encoder[Sensitive[UserDetails, String]]],
-      lazySensitiveEncoderString: Lazy[Encoder[Sensitive[String, String]]]
-    ): Encoder[Foo] = {
-      implicit val sensitiveEvidence1: Encoder[Sensitive[UserDetails, String]] = lazySensitiveEncoderUserDetails.value
-      implicit val sensitiveEvidence2: Encoder[Sensitive[String, String]] = lazySensitiveEncoderString.value
-      deriveEncoder[Foo]
-    }
+    implicit def fooEncoder(implicit serdesContext: Lazy[SerdesContext]): Encoder[Foo] = deriveEncoder[Foo]
+
     implicit val barEncoder: Encoder[Bar] = deriveEncoder[Bar]
     implicit val quxEncoder: Encoder[Qux] = deriveEncoder[Qux]
     implicit val aEncoder: Encoder[A] = deriveEncoder[A]
 
-    implicit def userEncoder(
-      implicit lazySensitiveEncoder: Lazy[Encoder[Sensitive[String, String]]]
-    ): Encoder[UserDetails] = {
-      implicit val sensitive: Encoder[Sensitive[String, String]] = lazySensitiveEncoder.value
-      deriveEncoder[UserDetails]
-    }
-
-    implicit def contractEncoder(
-      implicit lazySensitiveEncoderUserDetails: Lazy[Encoder[Sensitive[UserDetails, String]]],
-       lazySensitiveEncoderString: Lazy[Encoder[Sensitive[String, String]]]
-    ): Encoder[Contract] = {
-      implicit val sensitiveEvidence1: Encoder[Sensitive[UserDetails, String]] = lazySensitiveEncoderUserDetails.value
-      implicit val sensitiveEvidence2: Encoder[Sensitive[String, String]] = lazySensitiveEncoderString.value
-      deriveEncoder[Contract]
-    }
-
-    implicit def addressEncoder(
-      implicit lazySensitiveEncoder: Lazy[Encoder[Sensitive[String, String]]]
-    ): Encoder[Address] = {
-      implicit val sensitive: Encoder[Sensitive[String, String]] = lazySensitiveEncoder.value
-      deriveEncoder[Address]
-    }
-
-    implicit def userDetailsEncoder(
-      implicit lazySensitiveEncoderAddress: Lazy[Encoder[Sensitive[Address, String]]]
-    ): Encoder[User] = {
-      implicit val sensitiveEncoder = lazySensitiveEncoderAddress.value
-      deriveEncoder[User]
-    }
+    implicit def userEncoder(implicit serdesContext: Lazy[SerdesContext]): Encoder[UserDetails] = deriveEncoder[UserDetails]
+    implicit def contractEncoder(implicit serdesContext: Lazy[SerdesContext]): Encoder[Contract] = deriveEncoder[Contract]
+    implicit def addressEncoder(implicit serdesContext: Lazy[SerdesContext]): Encoder[Address] = deriveEncoder[Address]
+    implicit def userDetailsEncoder(implicit serdesContext: Lazy[SerdesContext]): Encoder[User] = deriveEncoder[User]
   }
 }
