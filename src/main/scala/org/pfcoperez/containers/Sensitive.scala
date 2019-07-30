@@ -125,7 +125,7 @@ object Sensitive {
     import shapeless.Lazy
 
     implicit lazy val cfg: Configuration = Configuration.default.withSnakeCaseConstructorNames.withSnakeCaseMemberNames
-    
+
     implicit def sensitiveEncoder[T, RedactedT](
       implicit aEncoder: Encoder[T],
       bEncoder: Encoder[RedactedT],

@@ -1,11 +1,13 @@
 package org.pfcoperez.webserver
 
 import akka.actor.ActorSystem
+import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshalling.{Marshaller, ToEntityMarshaller}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.{Directive1, RequestContext}
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.directives.ParameterDirectives.ParamDef
 import akka.stream.ActorMaterializer
 import io.circe.Encoder
 import org.pfcoperez.SerdesContext
@@ -33,7 +35,7 @@ object Server extends App {
   }
 
 
-  val route = path("alive") {
+  lazy val route: Route = path("alive") {
     get {
       complete(StatusCodes.OK)
     }
@@ -41,12 +43,15 @@ object Server extends App {
     withSerdesContext { implicit context =>
       path("a") {
         get {
-          val aValue = A(42)
-          complete(aValue)
+          implicitly[ParamDef[String]]
+          parameters("a") { _ =>
+            val aValue = A(42)
+            complete("a")
+          }
         }
       }
     }
-  }
+  } ~ pathPrefix("recursive")(route)
 
   val bindingFuture = Http().bindAndHandle(route, "localhost", 8080)
 
