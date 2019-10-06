@@ -16,12 +16,20 @@ import org.pfcoperez.Models.{A, Address, SometimesNotThere, Special, User}
 import org.pfcoperez.Models.LazyProtocol._
 import org.pfcoperez.SerdesContext
 import org.pfcoperez.containers.Sensitive
-import akka.http.scaladsl.server.directives.{ContentTypeResolver, DebuggingDirectives, LoggingMagnet}
+import akka.http.scaladsl.server.directives.{
+  ContentTypeResolver,
+  DebuggingDirectives,
+  LoggingMagnet
+}
 import java.io.{File, FileOutputStream}
 import java.util.zip.{ZipEntry, ZipOutputStream}
 
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.ContentType.Binary
+import akka.http.scaladsl.model.ws.{TextMessage, UpgradeToWebSocket}
+import akka.http.scaladsl.server.directives.BasicDirectives.extractRequest
+import akka.http.scaladsl.server.directives.RouteDirectives.complete
+import akka.stream.scaladsl._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -34,14 +42,12 @@ object ServerLazyFormats extends App {
 
   // system.eventStream.setLogLevel(Logging.DebugLevel)
 
-  implicit def entityToEntityMarshaller[T : Encoder]: ToEntityMarshaller[T] = {
+  implicit def entityToEntityMarshaller[T: Encoder]: ToEntityMarshaller[T] = {
     Marshaller.opaque { x: T =>
       val wrappedKey = "__wrapped"
 
       import io.circe.syntax._
-      val outer = Json.fromJsonObject(
-        JsonObject(wrappedKey -> x.asJson)
-      )
+      val outer = Json.fromJsonObject(JsonObject(wrappedKey -> x.asJson))
 
       val maybeProcessed = for {
         outerObj <- PostprocessingContainer.postProcess(outer).asObject
@@ -56,17 +62,15 @@ object ServerLazyFormats extends App {
 
   val withSerdesContext: Directive1[SerdesContext] = {
     val rqContextToSerdesContext: RequestContext => SerdesContext =
-      _ => SerdesContext(redactSecrets = false, strictDeser = true) //TODO: Logic to build context from request
+      _ =>
+        SerdesContext(redactSecrets = false, strictDeser = true) //TODO: Logic to build context from request
     extract(rqContextToSerdesContext)
   }
 
   val aCow = User(
     "Happy Cow",
     "moooo",
-    Sensitive(
-      Address(city = "Kobe"),
-      "You stalker! what do you want it for?"
-    )
+    Sensitive(Address(city = "Kobe"), "You stalker! what do you want it for?")
   )
 
   val loggingFunction: HttpRequest => RouteResult => Unit = { request =>
@@ -76,7 +80,8 @@ object ServerLazyFormats extends App {
     }
   }
 
-  val customLogging = DebuggingDirectives.logRequestResult(LoggingMagnet(_ => loggingFunction))
+  val customLogging =
+    DebuggingDirectives.logRequestResult(LoggingMagnet(_ => loggingFunction))
 
   case class AppEvent(msg: String)
 
@@ -99,6 +104,20 @@ object ServerLazyFormats extends App {
             println(s"WATCHER> TERMINATED ${termination.actor}")
         }
       }
+    }
+  }
+
+  val dir = parameter("a".as[Boolean] ? true).tflatMap { a =>
+    parameter("b".as[String] ? "dontknow").tflatMap { b =>
+      println(s"$a $b")
+      tprovide(a, b)
+    }
+  }
+
+  val dir2 = parameter("b".as[String] ? "dontknow").tflatMap { a =>
+    parameter("a".as[Boolean] ? true).tflatMap { b =>
+      println(s"$a $b")
+      tprovide(a, b)
     }
   }
 
@@ -127,7 +146,8 @@ object ServerLazyFormats extends App {
 
         watcherActor ! streamActor
 
-        implicit val StringMarshaller: ToEntityMarshaller[String] = Marshaller.stringMarshaller(`text/csv`)
+        implicit val StringMarshaller: ToEntityMarshaller[String] =
+          Marshaller.stringMarshaller(`text/csv`)
 
         complete {
           source.collect {
@@ -141,7 +161,7 @@ object ServerLazyFormats extends App {
           getFromFile(file, `application/zip`)
         }
       }
-  } ~ path("presence") {
+    } ~ path("presence") {
       parameter('hide.as[Boolean] ? false) { hide =>
         val addr = Address("Madrid")
         val special = Special(SometimesNotThere(addr))
@@ -159,19 +179,56 @@ object ServerLazyFormats extends App {
       System.exit(0)
       StatusCodes.OK
     }
+  } ~ path("prms") {
+    dir {
+      case (x, y) =>
+        println(s"$x $y")
+        complete(StatusCodes.OK)
+    }
+  } ~ path("ws") {
+    val plansChangesStream = Source
+      .repeat(())
+      .delay(1 second)
+      .map(_ => TextMessage(Source.single("hello")))
+    get {
+      extractRequest { request =>
+        request.header[UpgradeToWebSocket] match {
+          case Some(upgrade) =>
+            complete(
+              upgrade
+                .handleMessagesWithSinkSource(Sink.ignore, plansChangesStream)
+            )
+          case _ =>
+            complete(
+              HttpResponse(
+                StatusCodes.BadRequest,
+                entity = "Invalid WS request"
+              )
+            )
+        }
+      }
+    }
   }
 
-  val bindingFuture: Future[ServerBinding] = Http().bindAndHandle(route, "localhost", 8080)
+  val bindingFuture: Future[ServerBinding] =
+    Http().bindAndHandle(route, "localhost", 8080)
 
   def downloadExampleFile(): Future[List[String]] = Future {
-    scala.io.Source.fromURL("https://memory-beta.fandom.com/wiki/Ferengi_Rules_of_Acquisition").getLines.toList
+    scala.io.Source
+      .fromURL(
+        "https://memory-beta.fandom.com/wiki/Ferengi_Rules_of_Acquisition"
+      )
+      .getLines
+      .toList
   }
 
   def generateFile(): Future[File] = {
     downloadExampleFile().map { lines =>
       val tmpFile = File.createTempFile("generated", ".zip")
       val zipOutputStream = new ZipOutputStream(new FileOutputStream(tmpFile))
-      zipOutputStream.putNextEntry(new ZipEntry("Ferengi_Rules_of_Acquisition.html"))
+      zipOutputStream.putNextEntry(
+        new ZipEntry("Ferengi_Rules_of_Acquisition.html")
+      )
 
       lines.foreach { line =>
         val bytes = s"$line\n".toCharArray.map(_.toByte)
