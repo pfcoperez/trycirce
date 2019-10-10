@@ -17,8 +17,8 @@ lazy val circeDependencies = Seq(
 ).map(_ % circeVersion)
 
 lazy val akkaHttpDependencies = Seq(
-  "com.typesafe.akka" %% "akka-http"   % "10.1.5",
-  "com.typesafe.akka" %% "akka-stream" % "2.5.17"
+  "com.typesafe.akka" %% "akka-http" % "10.1.10",
+  "com.typesafe.akka" %% "akka-stream" % "2.5.23"
 )
 
 libraryDependencies ++= circeDependencies
